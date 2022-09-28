@@ -1,0 +1,37 @@
+{
+  "name": "sharif/bj_test",
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/",
+      "Core\\": "core/"
+    },
+    "files": [
+      "core/constants.php",
+      "core/helpers.php"
+    ]
+  },
+  "authors": [
+    {
+      "name": "sharif"
+    }
+  ],
+  "require-dev": {
+    "symfony/var-dumper": "^6.0",
+    "phpunit/phpunit": "^9.5",
+    "pestphp/pest": "^1.22"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  },
+  "require": {
+    "illuminate/collections": "^9.30",
+    "rdlowrey/auryn": "^1.4",
+    "robmorgan/phinx": "^0.12.12",
+    "paragonie/easydb": "^3.0",
+    "twig/twig": "^3.4",
+    "illuminate/database": "^9.31",
+    "illuminate/pagination": "^9.31"
+  }
+}

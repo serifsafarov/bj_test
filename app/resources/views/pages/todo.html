@@ -1,0 +1,249 @@
+{% extends "layouts/index.html" %}
+
+{% block title %}Index{% endblock %}
+
+{% block head %}
+{{ parent() }}
+<style type="text/css">
+    .divider:after,
+    .divider:before {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #eee;
+    }
+
+    tr.doneTask {
+        text-decoration: line-through
+    }
+
+    th.canBeSorted{
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% verbatim %}
+<section id="app" class="vh-100" style="background-color: #3da2c3;height: 100vh;">
+    <div class="container py-5 h-100">
+        <div class="row d-flex justify-content-center align-items-center h-100">
+            <div class="col col-lg-12 col-xl-12">
+                <div class="card rounded-3">
+                    <div class="card-body p-4">
+
+                        <p class="mb-2">
+                            <span class="h2 me-2">To-do</span>
+                            <a style="margin-bottom: 12px;" href="/login" class="btn btn-outline-primary">
+                                {{user ? 'Logout' : 'Login'}}
+                            </a>
+                        </p>
+
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th class="canBeSorted" scope="col" @click.prevent="changeSort('done')">
+                                    Status
+                                    <span v-if="pagination.sort.prop === 'done'">
+                                        {{pagination.sort.type === 'asc' ? '&#8593;' : '&#8595;'}}
+                                    </span>
+                                </th>
+                                <th class="canBeSorted" scope="col" @click.prevent="changeSort('name')">
+                                    Name
+                                    <span v-if="pagination.sort.prop === 'name'">
+                                        {{pagination.sort.type === 'asc' ? '&#8593;' : '&#8595;'}}
+                                    </span>
+                                </th>
+                                <th class="canBeSorted" scope="col" @click.prevent="changeSort('email')">
+                                    Email
+                                    <span v-if="pagination.sort.prop === 'email'">
+                                        {{pagination.sort.type === 'asc' ? '&#8593;' : '&#8595;'}}
+                                    </span>
+                                </th>
+                                <th scope="col">Text</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+
+                            <tr v-for="task in tasks" :class="{'doneTask': task.done}">
+                                <th scope="row" style="text-align: center;">
+                                    <input :disabled="!user" class="form-check-input me-3" type="checkbox"
+                                           v-model="task.done"
+                                           @change="saveTask(task)"
+                                           aria-label="..."
+                                           :checked="task.done"/>
+                                    <span v-if="task.edited_by_admin" class="badge badge-info">Edited by admin</span>
+                                    <span v-if="task.done" class="badge badge-success">Done</span>
+                                    <span v-else class="badge badge-secondary">Pending</span>
+                                </th>
+                                <td>
+                                    {{task.name}}
+                                </td>
+                                <td>
+                                    {{task.email}}
+                                </td>
+                                <td>
+                                    <textarea :disabled="!user" @input="saveTask(task)" v-model="task.description">
+                                        {{task.description}}
+                                    </textarea>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th scope="row" style="text-align: center;">
+                                    <button @click.prevent="addNewTask" type="submit" class="btn btn-outline-primary">
+                                        +
+                                    </button>
+                                </th>
+                                <td>
+                                    <input required type="text" v-model="newTask.name" placeholder="Name">
+                                </td>
+                                <td>
+                                    <input required type="email" v-model="newTask.email" placeholder="Email">
+                                </td>
+                                <td>
+                                    <textarea required v-model="newTask.description" placeholder="Description">
+                                        {{newTask.description}}
+                                    </textarea>
+                                </td>
+                            </tr>
+
+                            </tbody>
+                        </table>
+
+                        <paginate
+                                :page-count="pagination.totalPages"
+                                :click-handler="getTasks"
+                                :prevText="'Prev'"
+                                :nextText="'Next'"
+                                :active-class="'myActiveBtn'"
+                                :containerClass="'pagination'"
+                                class="pagination"
+                                v-model="pagination.currentPage"
+                        >
+                        </paginate>
+
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endverbatim %}
+
+
+{% endblock %}
+
+{% block scripts %}
+{{ parent() }}
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            pagination: {
+                currentPage: 1,
+                totalPages: 1,
+                sort: {
+                    prop: 'id',
+                    type: 'desc'
+                }
+            },
+            tasks: [],
+            user: null,
+            newTask: {
+                name: '',
+                email: '',
+                description: ''
+            },
+            updating: false
+        },
+        mounted() {
+            this.fetchAuthUser()
+            this.getTasks()
+        },
+        methods: {
+            async changeSort(prop) {
+                let sortObject = {
+                    prop: prop,
+                    type: 'asc'
+                };
+                if (prop === this.pagination.sort.prop) {
+                    if (this.pagination.sort.type === 'asc')
+                        sortObject.type = 'desc'
+                    else
+                        sortObject.type = 'asc'
+                }
+                console.log(sortObject)
+                this.pagination.sort = sortObject
+                await this.getTasks(this.pagination.currentPage)
+            },
+            async saveTask(task) {
+
+                let formData = new FormData();
+                formData.append('id', task.id);
+                formData.append('done', task.done ? 1 : 0);
+                formData.append('description', task.description);
+
+                axios.post('/api/tasks/save', formData).then(res => {
+                    this.getTasks(this.pagination.currentPage)
+                }).catch(e => {
+                    if (e.response.status === 401)
+                        window.location.href = '/login'
+                    else
+                        alert(e.response.data)
+                })
+
+            },
+            async addNewTask() {
+
+                let formData = new FormData();
+                formData.append('name', this.newTask.name);
+                formData.append('email', this.newTask.email);
+                formData.append('description', this.newTask.description);
+
+                axios.post('/api/tasks/add', formData)
+                    .then(res => {
+                        this.newTask = {
+                            name: '',
+                            email: '',
+                            description: ''
+                        }
+                        this.pagination.sort = {
+                            prop: 'id',
+                            type: 'desc'
+                        }
+                        alert('Task added')
+                        this.getTasks(this.pagination.currentPage)
+                    })
+                    .catch(e => {
+                        alert(e.response.data)
+                    })
+
+            },
+            async getTasks(page = 1) {
+                axios.get('/api/tasks', {
+                    params: {
+                        page: page,
+                        sort_prop: this.pagination.sort.prop,
+                        sort_type: this.pagination.sort.type,
+                    }
+                })
+                    .then(res => {
+                        let tasks = res.data.tasks
+                        this.pagination.currentPage = tasks.current_page
+                        this.pagination.totalPages = tasks.last_page
+                        this.tasks = tasks.data
+                    })
+            },
+            async fetchAuthUser() {
+                axios.get('/api/auth/user')
+                    .then(res => {
+                        this.user = res.data
+                    })
+            }
+        }
+    })
+</script>
+{% endblock %}
